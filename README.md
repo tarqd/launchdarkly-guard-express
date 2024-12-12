@@ -9,6 +9,22 @@ This project automatically instruments express.js applications with LaunchDarkly
 - Uses async hooks to ensure intereleaved requests are tracked correctly
 - Optional: Creates a helpful "request" context you can use for evaluation
 
+# Usage
+
+```javascript
+const {
+    // LaunchDarkly SDK hook that registers context tracking
+    expressHook, 
+    // Creates the middleware for the given SDK client instance
+    guardMiddleware
+} = createGuard();
+
+const ldClient = LaunchDarkly.init(LD_SDK_KEY, {
+    hooks: [expressHook]
+});
+
+app.use(guardMiddleware(ldClient));
+```
 
 ## Table of Contents
 

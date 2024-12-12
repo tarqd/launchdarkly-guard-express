@@ -15,20 +15,19 @@ const {
     // LaunchDarkly SDK hook that registers context tracking
     expressHook, 
     // Creates the middleware for the given SDK client instance
-    createMiddleware
+    guardMiddleware
 } = createGuard();
 
 const ldClient = LaunchDarkly.init(LD_SDK_KEY, {
     hooks: [expressHook]
 });
 
-const guardMiddleware = createMiddleware(ldClient);
 
 const app = express()
 const port = 8000
 // Pre-middleware initializes the async storage data
 // and tracks the request start time
-app.use(guardMiddleware.pre);
+app.use(guardMiddleware(ldClient));
 app.get('/', (req, res, next) => {
   // any time you call ldClient.variation, the "last context" for _this request_ is stored
   // middleware will use that when tracking metrics
@@ -36,7 +35,6 @@ app.get('/', (req, res, next) => {
   // we do this using asyncLocalStorage
   ldClient.variation('release-widget', req[LD_REQUEST_CONTEXT], false, (err, show) => {
     res.send(show ? 'Hello World!' : 'Not today!');
-    next()
   });
   
 })
@@ -49,10 +47,7 @@ app.get('/error', (req, res, next) => {
     
 })
 
-// post middleware:
-// - tracks the request duration
-// - sets up an error handler to track errors
-app.use(guardMiddleware.post);
+
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
 })

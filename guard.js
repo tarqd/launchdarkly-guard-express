@@ -1,6 +1,8 @@
 import { AsyncLocalStorage } from "async_hooks";
-import { create } from "domain";
 import { performance } from "perf_hooks";
+import onHeaders from 'on-headers';
+
+
 
 class LaunchDarklyExpressHook {
     constructor(store) {
@@ -43,57 +45,47 @@ function requestToLDContext(kind, req) {
 export function createGuard() {
     const store = new AsyncLocalStorage();
     const sdkHook = new LaunchDarklyExpressHook(store);
-
-    const preMiddleware = (req, res, next) => {
-        // storage the last available context and start time in this request context
-        // transform request into a request context
-        const request_context_kind = 'x_ld_request';
-        const metadata = {
-            ldContext: null,
-            requestContext: Object.assign(requestToLDContext(request_context_kind, req), {startTime: Date.now()}),
-            startTime: performance.now()
-        };
-        req[LD_GUARD_META] = metadata;
-        // helper you can use if you want a request context
-        req[LD_REQUEST_CONTEXT] = metadata.requestContext;
-        console.log(req[LD_GUARD_META]);
-        store.run(metadata, next);
-    }
- 
-    function createPostMiddleware(ldClient) {
-        const getDuration = (req) => {
-            const {startTime} = req[LD_GUARD_META];
-            return performance.now() - startTime;
-        };
-
-        const trackDuration = (req, res, next) => {
+    
+    function guardMiddleware(ldClient) {
+        return [(err, req, res, next) => { 
             const context = req[LD_GUARD_META]?.lastLDContext;
             if (context) {
-                const duration = getDuration(req);
-                ldClient.track('request-duration-ms', context, duration);
-            }
-            next();
-        };
-        const trackErrors = (err, req, res, next) => {
-            const context = req[LD_GUARD_META]?.lastLDContext;
-            if (context) {
-                const duration = getDuration(req);
-                ldClient.track('request-duration-ms', context, duration);
                 ldClient.track('error', context);
             }
             next(err);
-        };
-        return [trackDuration, trackErrors];
+        },
+        (req, res, next) => {
+            const startTime = performance.now();
+            const request_context_kind = 'x_ld_request';
+            const metadata = {
+                ldContext: null,
+                startTime,
+            };
+            req[LD_GUARD_META] = metadata;
+            // helper you can use if you want a request context
+            req[LD_REQUEST_CONTEXT] = Object.assign(
+                requestToLDContext(request_context_kind, req),
+                { startTime: Math.floor(startTime) }
+            );
+            
+            // we use the res middleware to track the end of the request
+            onHeaders(res, function responseTime(){
+                const duration = performance.now() - startTime;
+                const context = req[LD_GUARD_META]?.lastLDContext;
+                if (context) {
+                    ldClient.track('response-time-ms', context, duration);
+                }
+            });
+            store.run(metadata, next);
+        }]
     }
+
+ 
+   
 
     return {
         expressHook: sdkHook,
-        createMiddleware(ldClient) {
-            return {
-                pre: [preMiddleware],
-                post: createPostMiddleware(ldClient)
-            }
-        }
+        guardMiddleware
     }
 }
 
