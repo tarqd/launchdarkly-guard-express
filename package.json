@@ -1,0 +1,16 @@
+{
+  "name": "launchdarkly-guard-express",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@launchdarkly/node-server-sdk": "^9.7.2",
+    "express": "^4.21.2"
+  },
+  "description": ""
+}
