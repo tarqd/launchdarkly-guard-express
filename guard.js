@@ -79,7 +79,7 @@ export function createGuard() {
             if (context) {
                 const duration = getDuration(req);
                 ldClient.track('request-duration-ms', context, duration);
-                ldClient.track('error', context, err);
+                ldClient.track('error', context);
             }
             next(err);
         };
