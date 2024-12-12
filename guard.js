@@ -22,6 +22,7 @@ class LaunchDarklyExpressHook {
 
 export const LD_GUARD_META = Symbol('LD_GUARD_META');
 export const LD_REQUEST_CONTEXT = Symbol('LD_REQUEST_CONTEXT');
+export const LD_CLIENT = Symbol('LD_CLIENT');
 
 function randomUUID() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -47,21 +48,15 @@ export function createGuard() {
     const sdkHook = new LaunchDarklyExpressHook(store);
     
     function guardMiddleware(ldClient) {
-        return [(err, req, res, next) => { 
-            const context = req[LD_GUARD_META]?.lastLDContext;
-            if (context) {
-                ldClient.track('error', context);
-            }
-            next(err);
-        },
-        (req, res, next) => {
+        return (req, res, next) => {
             const startTime = performance.now();
             const request_context_kind = 'x_ld_request';
             const metadata = {
-                ldContext: null,
+                lastLDContext: null,
                 startTime,
             };
             req[LD_GUARD_META] = metadata;
+            req[LD_CLIENT] = ldClient;
             // helper you can use if you want a request context
             req[LD_REQUEST_CONTEXT] = Object.assign(
                 requestToLDContext(request_context_kind, req),
@@ -77,7 +72,7 @@ export function createGuard() {
                 }
             });
             store.run(metadata, next);
-        }]
+        };
     }
 
  
@@ -85,7 +80,24 @@ export function createGuard() {
 
     return {
         expressHook: sdkHook,
-        guardMiddleware
+        guardMiddleware,
+    }
+}
+
+export function guardErrorHandler() {
+    return (err, req, res, next) => {
+        const ldClient = req[LD_CLIENT];
+        const context = req[LD_GUARD_META]?.lastLDContext;
+        if (!ldClient) {
+            console.warn("No LaunchDarkly client found on request object. Did you forget to add the guard middleware?");
+            return next(err);
+        }
+        if (context) {
+            ldClient.track('error', context, err);
+        } else {
+            console.warn("No LaunchDarkly context found on request object while handling error");
+        }
+        next(err);
     }
 }
 

@@ -1,5 +1,7 @@
 # LaunchDarkly Guard Express
 
+![LaunchDarkly Guard Express](./assets/screenshot.png)
+
 This project automatically instruments express.js applications with LaunchDarkly metrics for use with guarded rollouts. 
 
 ## Features
@@ -12,18 +14,28 @@ This project automatically instruments express.js applications with LaunchDarkly
 # Usage
 
 ```javascript
+import express from 'express';
+import { createGuard, guardErrorHandler } from 'launchdarkly-guard-express';
+
+const app = express();
+
 const {
     // LaunchDarkly SDK hook that registers context tracking
     expressHook, 
     // Creates the middleware for the given SDK client instance
     guardMiddleware
 } = createGuard();
-
+// Create LD client with the context tracking hook for express
 const ldClient = LaunchDarkly.init(LD_SDK_KEY, {
     hooks: [expressHook]
 });
 
+// install the middleware
 app.use(guardMiddleware(ldClient));
+// add your routes
+
+// install the error tracking middleware
+app.use(guardErrorHandler());
 ```
 
 ## Table of Contents

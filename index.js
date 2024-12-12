@@ -4,6 +4,8 @@ import * as LaunchDarkly from '@launchdarkly/node-server-sdk';
 import {
     // Creates a SDK hook and a function to create middleware for express
     createGuard, 
+    // Handles error tracking, must added after all other middleware
+    guardErrorHandler,
     // Symbol that let's you access the automatic request context
     // Just a helper for generating a context with a random uuid and some request information
     // This is optional, you can create your own context
@@ -41,13 +43,19 @@ app.get('/', (req, res, next) => {
 app.get('/error', (req, res, next) => {
   
     ldClient.variation('release-widget', req[LD_REQUEST_CONTEXT], false, (err, show) => {
-      res.send('we got an error!');
-        next(new Error('Something went wrong'));
+      //res.send('we got an error!');
+        next(new Error('we got an error!'));
     });
     
 })
+
+app.use(guardErrorHandler());
 
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
 })
+
+process.on('beforeExit', async () => {
+    await ldClient.flush();
+});
